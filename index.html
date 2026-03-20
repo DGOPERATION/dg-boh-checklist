@@ -863,6 +863,8 @@ function closeModal() {
   gid('modal-photo-inp').value = '';
 }
 
+window.addEventListener('load', function() {
+
 gid('modal-bg').addEventListener('click', function(e) {
   if (e.target === this) closeModal();
 });
@@ -888,8 +890,6 @@ gid('btn-modal-save').addEventListener('click', async function() {
   const text = gid('modal-text').value.trim();
   if (!text && !modalPhotoB64) { showToast('Ajoutez une note ou une photo'); return; }
   this.textContent = '...'; this.disabled = true;
-
-  // Résoudre le nom de la tâche
   let taskName = modalTaskId;
   if (modalTaskId.startsWith('custom_')) {
     const ct = customTasks.find(c => 'custom_' + c.id === modalTaskId);
@@ -897,7 +897,6 @@ gid('btn-modal-save').addEventListener('click', async function() {
   } else {
     taskName = TASKS[modalTaskId] ? TASKS[modalTaskId].label : modalTaskId;
   }
-
   try {
     if (modalNoteId) {
       await DB.from('stockiste_notes').update({
@@ -929,7 +928,6 @@ gid('btn-modal-delete').addEventListener('click', async function() {
   renderToday();
 });
 
-// ── FEEDBACK ──
 gid('fb-photo-inp').addEventListener('change', function() {
   const file = this.files[0];
   if (!file) return;
@@ -958,6 +956,8 @@ gid('btn-send-fb').addEventListener('click', async function() {
   } catch(err) { showToast('Erreur — réessayez'); }
   this.textContent = 'Envoyer le feedback →'; this.disabled = false;
 });
+
+}); // fin window.load
 
 // ── WEEK ──
 async function renderWeek() {
