@@ -635,6 +635,7 @@ async function loadTodayData() {
   renderToday();
   await loadFbHistory();
 }
+
 function renderToday() {
   const t = STORE_TASKS[currentStore] || { o: [], f: [] };
   const customIds = customTasks.map(c => 'custom_' + c.id);
@@ -1008,7 +1009,9 @@ async function loadFbHistory() {
 }
 
 function renderFbHistory(items) {
-  if (!items.length) { gid('fb-history').innerHTML = ''; return; }
+  const container = gid('fb-history');
+  if (!container) return;
+  if (!items.length) { container.innerHTML = ''; return; }
   const urgLabel = { normal: '🟢 Normal', urgent: '🟠 Urgent', bloquant: '🔴 Bloquant' };
   let html = '<div style="margin-top:4px;">';
   items.forEach(f => {
@@ -1028,9 +1031,9 @@ function renderFbHistory(items) {
       '</div>';
   });
   html += '</div>';
-  gid('fb-history').innerHTML = html;
+  container.innerHTML = html;
 
-  gid('fb-history').querySelectorAll('.btn-read:not(.done)').forEach(btn => {
+  container.querySelectorAll('.btn-read:not(.done)').forEach(btn => {
     btn.addEventListener('click', async function() {
       const fbid = this.getAttribute('data-fbid');
       await DB.from('stockiste_feedback').update({
