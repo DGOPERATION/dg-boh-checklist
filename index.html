@@ -446,10 +446,10 @@ const STORE_NAMES = {
 };
 
 const PRESET_NAMES = {
-  montaigne: ['Augusto','Arseni','Bertrand','Oguzhan','Elisa'],
-  faubourg: ['Aurelie','Sambou','olivier','Anna'], cannes: ['Youness','Stephanie','thomas'], 'saint-tropez': ['Askher'], nice: ['Stephanie'],
-  'lafayette-kids': ['romaric','Julie','Francois'], 'lafayette-men-rtw': ['romaric','Julie','Francois'], 'lafayette-men-shoes': ['romaric','Julie','Francois'],
-  'lafayette-donna-shoes': ['romaric','Julie','Francois'], 'monte-carlo': ['Lorena','Francis','Gilles'], 'monte-carlo-kids': ['Lorena','Francis','Gilles']
+  montaigne: ['Irma','Augusto','Alen','Emilie','Nadira'],
+  faubourg: [], cannes: [], 'saint-tropez': [], nice: [],
+  'lafayette-kids': [], 'lafayette-men-rtw': [], 'lafayette-men-shoes': [],
+  'lafayette-donna-shoes': [], 'monte-carlo': [], 'monte-carlo-kids': []
 };
 
 // ── STATE ──
@@ -457,6 +457,7 @@ let currentStore = null;
 let currentName = null;
 let doneMap = {};
 let notesMap = {};
+let customTasks = [];
 let weekDay = null;
 let modalTaskId = null;
 let modalNoteId = null;
@@ -555,17 +556,36 @@ gid('tab-week-btn').addEventListener('click', async function() {
 
 // ── LOAD TODAY ──
 async function loadTodayData() {
-  const [r1, r2] = await Promise.all([
-    DB.from('stockiste_completions').select('*').eq('store_id', currentStore).eq('date', todayStr()),
-    DB.from('stockiste_notes').select('*').eq('store_id', currentStore).eq('date', todayStr())
+  const today = todayStr();
+  const dow = new Date().getDay(); // 0=dim, 1=lun...
+  const dom = new Date().getDate();
+
+  const [r1, r2, r3] = await Promise.all([
+    DB.from('stockiste_completions').select('*').eq('store_id', currentStore).eq('date', today),
+    DB.from('stockiste_notes').select('*').eq('store_id', currentStore).eq('date', today),
+    DB.from('custom_tasks').select('*').eq('store_id', currentStore).eq('active', true)
   ]);
+
   doneMap = {};
   (r1.data || []).forEach(r => { doneMap[r.task_id] = { by: r.stockiste_name, at: r.completed_at }; });
   notesMap = {};
   (r2.data || []).forEach(n => { notesMap[n.task_id] = n; });
 
+  // Filtrer les tâches custom qui s'appliquent aujourd'hui
+  customTasks = (r3.data || []).filter(t => {
+    if (t.task_type === 'ponctuelle') return t.scheduled_date === today;
+    if (t.task_type === 'recurrente') {
+      if (t.recurrence === 'quotidien') return true;
+      if (t.recurrence === 'hebdo' && t.recurrence_days) {
+        return t.recurrence_days.includes(String(dow));
+      }
+      if (t.recurrence === 'mensuel') return t.recurrence_day_of_month === dom;
+    }
+    return false;
+  });
+
   const fb = await DB.from('stockiste_feedback').select('*')
-    .eq('store_id', currentStore).eq('date', todayStr())
+    .eq('store_id', currentStore).eq('date', today)
     .order('created_at', { ascending: false }).limit(1);
   if (fb.data && fb.data.length) {
     gid('fb-text').value = fb.data[0].feedback || '';
@@ -582,24 +602,49 @@ async function loadTodayData() {
 // ── RENDER TODAY ──
 function renderToday() {
   const t = STORE_TASKS[currentStore] || { o: [], f: [] };
-  const all = [...t.o, ...t.f];
+  const customIds = customTasks.map(c => 'custom_' + c.id);
+  const all = [...t.o, ...t.f, ...customIds];
   const doneCount = all.filter(id => doneMap[id]).length;
   const pct = all.length ? Math.round(doneCount / all.length * 100) : 0;
   gid('today-count').textContent = doneCount + '/' + all.length;
   gid('today-fill').style.width = pct + '%';
 
   let html = '';
+
+  // OUVERTURE
   if (t.o.length) {
     const dc = t.o.filter(id => doneMap[id]).length;
     html += '<div class="sec-hd"><div class="sec-dot" style="background:#EF9F27;"></div><div class="sec-name">ouverture</div><div class="sec-cnt">' + dc + '/' + t.o.length + '</div></div>';
     t.o.forEach(tid => { html += buildCard(tid); });
   }
+
+  // TÂCHES DU JOUR (custom) — section visible uniquement si tâches ajoutées
+  if (customTasks.length > 0) {
+    const dcCustom = customIds.filter(id => doneMap[id]).length;
+    html += '<div class="sec-hd" style="margin-top:8px;"><div class="sec-dot" style="background:var(--blue,#378ADD);"></div><div class="sec-name">tâches du jour</div><div class="sec-cnt">' + dcCustom + '/' + customTasks.length + '</div></div>';
+    customTasks.forEach(ct => {
+      const tid = 'custom_' + ct.id;
+      html += buildCustomCard(tid, ct);
+    });
+  }
+
+  // BOUTON AJOUTER UNE TÂCHE
+  html += '<div style="text-align:center;margin:10px 0 4px;">' +
+    '<button id="btn-add-task" style="background:none;border:1.5px dashed var(--border);border-radius:10px;padding:10px 20px;font-family:\'DM Sans\',sans-serif;font-size:12px;color:var(--text3);cursor:pointer;width:100%;">+ ajouter une tâche</button>' +
+    '</div>';
+
+  // FERMETURE
   if (t.f.length) {
     const dc = t.f.filter(id => doneMap[id]).length;
     html += '<div class="sec-hd" style="margin-top:8px;"><div class="sec-dot" style="background:#1A1612;"></div><div class="sec-name">fermeture</div><div class="sec-cnt">' + dc + '/' + t.f.length + '</div></div>';
     t.f.forEach(tid => { html += buildCard(tid); });
   }
+
   gid('tasks-list').innerHTML = html;
+
+  // Listener bouton ajouter
+  const btnAdd = gid('btn-add-task');
+  if (btnAdd) btnAdd.addEventListener('click', openAddTaskModal);
 }
 
 function buildCard(tid) {
@@ -623,6 +668,72 @@ function buildCard(tid) {
     (n.photo_url ? '<img src="' + n.photo_url + '">' : '') +
     '</div>'
   ) : '';
+
+// ── CUSTOM CARD ──
+function buildCustomCard(tid, ct) {
+  const isDone = !!doneMap[tid];
+  const d = doneMap[tid];
+  const n = notesMap[tid];
+  const hasNote = !!(n && (n.note || n.photo_url));
+  const whoHtml = d ? '<div class="task-who"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="4" r="2.5" stroke="#2A7A4E" stroke-width="1.5"/><path d="M1.5 10c0-2.5 9-2.5 9 0" stroke="#2A7A4E" stroke-width="1.5" stroke-linecap="round"/></svg>' + d.by + ' · ' + fmtTime(d.at) + '</div>' : '';
+  const notePreview = hasNote ? '<div class="note-preview"><span class="note-author">' + n.stockiste_name + '</span>' + (n.note || '') + (n.photo_url ? '<img src="' + n.photo_url + '">' : '') + '</div>' : '';
+  const badge = ct.task_type === 'recurrente' ? '<span style="font-size:9px;background:#E6F1FB;color:#185FA5;padding:2px 7px;border-radius:8px;margin-left:6px;font-weight:500;">récurrent</span>' : '';
+  return '<div class="task-card ' + (isDone ? 'done' : '') + '">' +
+    '<div class="task-check-row" data-tid="' + tid + '">' +
+    '<div class="chk-box"><svg class="chk-icon" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
+    '<div class="task-info"><div class="task-name">' + ct.title + badge + '</div>' + whoHtml + '</div>' +
+    '</div>' +
+    '<div class="task-note-row"><button class="note-btn ' + (hasNote ? 'has-note' : '') + '" data-tid="' + tid + '">' + (hasNote ? '📝 note ajoutée' : '+ ajouter une note') + '</button>' + (hasNote ? notePreview : '') + '</div>' +
+    '</div>';
+}
+
+// ── ADD TASK MODAL ──
+function openAddTaskModal() {
+  gid('add-task-modal').classList.add('open');
+  gid('add-task-title').value = '';
+  gid('add-task-type').value = 'ponctuelle';
+  gid('add-task-date').value = todayStr();
+  toggleAddTaskType();
+}
+function closeAddTaskModal() { gid('add-task-modal').classList.remove('open'); }
+function toggleAddTaskType() {
+  const type = gid('add-task-type').value;
+  gid('ponctuelle-options').style.display = type === 'ponctuelle' ? 'block' : 'none';
+  gid('recurrence-options').style.display = type === 'recurrente' ? 'block' : 'none';
+}
+function toggleRecurrenceType() {
+  const rec = gid('add-recurrence-type').value;
+  gid('hebdo-options').style.display = rec === 'hebdo' ? 'block' : 'none';
+  gid('mensuel-options').style.display = rec === 'mensuel' ? 'block' : 'none';
+}
+async function saveCustomTask() {
+  const title = gid('add-task-title').value.trim();
+  if (!title) { showToast('Entrez un titre'); return; }
+  const type = gid('add-task-type').value;
+  const btn = gid('btn-save-task');
+  btn.textContent = '...'; btn.disabled = true;
+  try {
+    const payload = { store_id: currentStore, title, period: 'jour', task_type: type, active: true };
+    if (type === 'ponctuelle') {
+      payload.scheduled_date = gid('add-task-date').value;
+    } else {
+      const rec = gid('add-recurrence-type').value;
+      payload.recurrence = rec;
+      if (rec === 'hebdo') {
+        const days = Array.from(document.querySelectorAll('.day-cb:checked')).map(c => c.value);
+        if (!days.length) { showToast('Sélectionnez au moins un jour'); btn.textContent = 'Ajouter →'; btn.disabled = false; return; }
+        payload.recurrence_days = days;
+      } else if (rec === 'mensuel') {
+        payload.recurrence_day_of_month = parseInt(gid('add-dom').value) || 1;
+      }
+    }
+    await DB.from('custom_tasks').insert(payload);
+    closeAddTaskModal();
+    showToast('✓ Tâche ajoutée');
+    await loadTodayData();
+  } catch(e) { showToast('Erreur — réessayez'); }
+  btn.textContent = 'Ajouter →'; btn.disabled = false;
+}
 
   return (
     '<div class="task-card ' + (isDone ? 'done' : '') + '">' +
@@ -765,6 +876,9 @@ function closeModal() {
 
 gid('modal-bg').addEventListener('click', function(e) {
   if (e.target === this) closeModal();
+});
+gid('add-task-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeAddTaskModal();
 });
 
 gid('btn-modal-cancel').addEventListener('click', closeModal);
@@ -950,5 +1064,59 @@ function buildWeekRow(tid, dDone, dDetail, dNotes) {
     '</div>';
 }
 </script>
+<!-- ═══ ADD TASK MODAL ═══ -->
+<div class="modal-bg" id="add-task-modal">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Ajouter une tâche</div>
+
+    <label class="form-lbl" style="margin-top:4px;">Titre</label>
+    <input type="text" class="form-inp" id="add-task-title" placeholder="Ex: Inventaire sacs nouvelles collections...">
+
+    <label class="form-lbl" style="margin-top:12px;">Type</label>
+    <select class="form-sel" id="add-task-type" onchange="toggleAddTaskType()">
+      <option value="ponctuelle">Tâche ponctuelle — aujourd'hui ou date choisie</option>
+      <option value="recurrente">Tâche récurrente — programmée</option>
+    </select>
+
+    <!-- PONCTUELLE -->
+    <div id="ponctuelle-options" style="margin-top:12px;">
+      <label class="form-lbl">Date</label>
+      <input type="date" class="form-inp" id="add-task-date">
+    </div>
+
+    <!-- RÉCURRENTE -->
+    <div id="recurrence-options" style="display:none;margin-top:12px;">
+      <label class="form-lbl">Fréquence</label>
+      <select class="form-sel" id="add-recurrence-type" onchange="toggleRecurrenceType()">
+        <option value="quotidien">Tous les jours</option>
+        <option value="hebdo">Certains jours de la semaine</option>
+        <option value="mensuel">Un jour du mois</option>
+      </select>
+      <div id="hebdo-options" style="display:none;margin-top:10px;">
+        <label class="form-lbl">Jours</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" class="day-cb" value="1"> Lun</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" class="day-cb" value="2"> Mar</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" class="day-cb" value="3"> Mer</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" class="day-cb" value="4"> Jeu</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" class="day-cb" value="5"> Ven</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" class="day-cb" value="6"> Sam</label>
+          <label style="display:flex;align-items:center;gap:4px;font-size:13px;"><input type="checkbox" class="day-cb" value="0"> Dim</label>
+        </div>
+      </div>
+      <div id="mensuel-options" style="display:none;margin-top:10px;">
+        <label class="form-lbl">Jour du mois</label>
+        <input type="number" class="form-inp" id="add-dom" min="1" max="31" value="1" placeholder="Ex: 1 pour le 1er du mois">
+      </div>
+    </div>
+
+    <div class="modal-btns" style="margin-top:16px;">
+      <button class="btn-cancel" onclick="closeAddTaskModal()">Annuler</button>
+      <button class="btn-save" id="btn-save-task" onclick="saveCustomTask()">Ajouter →</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
