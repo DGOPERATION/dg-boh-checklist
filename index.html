@@ -211,6 +211,28 @@ body {
 .btn-send:active { background: #333; }
 .fb-sent { background: var(--green-bg); border: 1px solid #9EC9B2; border-radius: 10px; padding: 12px; margin-top: 10px; font-size: 12px; color: var(--green); text-align: center; display: none; }
 .fb-sent.show { display: block; }
+.urgency-btn {
+  flex: 1; padding: 8px 4px; border-radius: 8px; border: 1.5px solid var(--border);
+  background: var(--bg); font-family: 'DM Sans', sans-serif; font-size: 11px;
+  font-weight: 500; color: var(--text2); cursor: pointer; transition: all 0.15s; text-align: center;
+}
+.urgency-btn.active[data-level="normal"] { background: #E8F5EE; border-color: #2A7A4E; color: #2A7A4E; }
+.urgency-btn.active[data-level="urgent"] { background: #FEF3E8; border-color: #C07020; color: #C07020; }
+.urgency-btn.active[data-level="bloquant"] { background: var(--red-bg); border-color: var(--red); color: var(--red); }
+.fb-item { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px; margin-top: 8px; }
+.fb-item.urgent { border-color: #C07020; background: #FEF3E8; }
+.fb-item.bloquant { border-color: var(--red); background: var(--red-bg); }
+.fb-item-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.fb-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+.fb-badge.normal { background: #E8F5EE; color: #2A7A4E; }
+.fb-badge.urgent { background: #FEF3E8; color: #C07020; }
+.fb-badge.bloquant { background: var(--red-bg); color: var(--red); }
+.fb-who { font-size: 11px; color: var(--text2); font-weight: 500; }
+.fb-time { font-size: 10px; color: var(--text3); margin-left: auto; }
+.fb-msg { font-size: 12px; color: var(--text2); line-height: 1.5; }
+.fb-item img { width: 100%; border-radius: 8px; margin-top: 8px; max-height: 150px; object-fit: cover; display: block; }
+.btn-read { margin-top: 8px; background: none; border: 1px solid var(--border); border-radius: 6px; padding: 5px 12px; font-family: 'DM Sans', sans-serif; font-size: 10px; color: var(--text3); cursor: pointer; }
+.btn-read.done { background: var(--green-bg); border-color: var(--green); color: var(--green); }
 
 /* WEEK */
 .week-nav { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 16px; }
@@ -363,15 +385,25 @@ body {
       <div class="sec-name">feedback de la journée</div>
     </div>
     <div class="fb-card">
-      <span class="fb-lbl">Note &amp; Photo</span>
+      <span class="fb-lbl">Nouveau message</span>
+
+      <!-- Urgence -->
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button class="urgency-btn active" data-level="normal" onclick="setUrgency('normal',this)">🟢 Normal</button>
+        <button class="urgency-btn" data-level="urgent" onclick="setUrgency('urgent',this)">🟠 Urgent</button>
+        <button class="urgency-btn" data-level="bloquant" onclick="setUrgency('bloquant',this)">🔴 Bloquant</button>
+      </div>
+
       <textarea class="fb-textarea" id="fb-text" placeholder="Comment s'est passée la journée ? Points à signaler au manager..."></textarea>
       <div class="photo-picker" id="fb-photo-picker">
         <input type="file" accept="image/*" capture="environment" id="fb-photo-inp">
         <span id="fb-photo-lbl">📷 Ajouter une photo</span>
       </div>
-      <button class="btn-send" id="btn-send-fb">Envoyer le feedback →</button>
-      <div class="fb-sent" id="fb-sent">✓ Feedback enregistré — visible par votre manager</div>
+      <button class="btn-send" id="btn-send-fb">Envoyer →</button>
     </div>
+
+    <!-- Historique feedbacks du jour -->
+    <div id="fb-history"></div>
   </div>
 
   <div class="tab-panel" id="panel-week">
@@ -470,6 +502,7 @@ let modalTaskId = null;
 let modalNoteId = null;
 let modalPhotoB64 = null;
 let fbPhotoB64 = null;
+let currentUrgency = 'normal';
 
 // ── HELPERS ──
 function gid(id) { return document.getElementById(id); }
@@ -604,9 +637,8 @@ async function loadTodayData() {
     gid('fb-sent').classList.add('show');
   }
   renderToday();
+  await loadFbHistory();
 }
-
-// ── RENDER TODAY ──
 function renderToday() {
   const t = STORE_TASKS[currentStore] || { o: [], f: [] };
   const customIds = customTasks.map(c => 'custom_' + c.id);
@@ -945,19 +977,73 @@ gid('btn-send-fb').addEventListener('click', async function() {
   if (!text && !fbPhotoB64) { showToast('Ajoutez un feedback ou une photo'); return; }
   this.textContent = 'Envoi...'; this.disabled = true;
   try {
-    await DB.from('stockiste_feedback').delete()
-      .eq('store_id', currentStore).eq('stockiste_name', currentName).eq('date', todayStr());
     await DB.from('stockiste_feedback').insert({
       store_id: currentStore, stockiste_name: currentName,
-      feedback: text, photo_url: fbPhotoB64 || null, date: todayStr()
+      feedback: text, photo_url: fbPhotoB64 || null,
+      urgency: currentUrgency, date: todayStr()
     });
-    gid('fb-sent').classList.add('show');
+    // Reset form
+    gid('fb-text').value = '';
+    gid('fb-photo-picker').classList.remove('has-img');
+    gid('fb-photo-lbl').textContent = '📷 Ajouter une photo';
+    fbPhotoB64 = null;
+    currentUrgency = 'normal';
+    document.querySelectorAll('.urgency-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('.urgency-btn[data-level="normal"]').classList.add('active');
     showToast('✓ Feedback envoyé');
+    await loadFbHistory();
   } catch(err) { showToast('Erreur — réessayez'); }
-  this.textContent = 'Envoyer le feedback →'; this.disabled = false;
+  this.textContent = 'Envoyer →'; this.disabled = false;
 });
 
 }); // fin window.load
+
+function setUrgency(level, btn) {
+  currentUrgency = level;
+  document.querySelectorAll('.urgency-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function loadFbHistory() {
+  const { data } = await DB.from('stockiste_feedback')
+    .select('*').eq('store_id', currentStore).eq('date', todayStr())
+    .order('created_at', { ascending: false });
+  renderFbHistory(data || []);
+}
+
+function renderFbHistory(items) {
+  if (!items.length) { gid('fb-history').innerHTML = ''; return; }
+  const urgLabel = { normal: '🟢 Normal', urgent: '🟠 Urgent', bloquant: '🔴 Bloquant' };
+  let html = '<div style="margin-top:4px;">';
+  items.forEach(f => {
+    const isRead = !!f.read_at;
+    const urg = f.urgency || 'normal';
+    html += '<div class="fb-item ' + (urg !== 'normal' ? urg : '') + '">' +
+      '<div class="fb-item-header">' +
+      '<span class="fb-badge ' + urg + '">' + (urgLabel[urg] || urg) + '</span>' +
+      '<span class="fb-who">' + f.stockiste_name + '</span>' +
+      '<span class="fb-time">' + fmtTime(f.created_at) + '</span>' +
+      '</div>' +
+      (f.feedback ? '<div class="fb-msg">' + f.feedback + '</div>' : '') +
+      (f.photo_url ? '<img src="' + f.photo_url + '" style="width:100%;border-radius:8px;margin-top:8px;max-height:150px;object-fit:cover;display:block;">' : '') +
+      '<button class="btn-read ' + (isRead ? 'done' : '') + '" data-fbid="' + f.id + '">' +
+      (isRead ? '✓ Lu par ' + f.read_by : 'Marquer comme lu') +
+      '</button>' +
+      '</div>';
+  });
+  html += '</div>';
+  gid('fb-history').innerHTML = html;
+
+  gid('fb-history').querySelectorAll('.btn-read:not(.done)').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const fbid = this.getAttribute('data-fbid');
+      await DB.from('stockiste_feedback').update({
+        read_at: new Date().toISOString(), read_by: currentName
+      }).eq('id', fbid);
+      await loadFbHistory();
+    });
+  });
+}
 
 // ── WEEK ──
 async function renderWeek() {
@@ -1032,14 +1118,22 @@ async function renderWeek() {
     .eq('store_id', currentStore).eq('date', weekDay)
     .order('created_at', { ascending: false });
   if (fb.data && fb.data.length) {
+    const urgLabel = { normal: '🟢', urgent: '🟠', bloquant: '🔴' };
     html += '<div class="sec-hd" style="margin-top:10px;"><div class="sec-dot" style="background:var(--gold);"></div><div class="sec-name">feedbacks</div></div>';
     fb.data.forEach(f => {
-      html += '<div class="week-task done"><div class="week-task-row">' +
-        '<div class="w-chk"><svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
-        '<div class="w-name">feedback — ' + f.stockiste_name + '</div>' +
-        '<div class="w-who">' + fmtTime(f.created_at) + '</div>' +
+      const urg = f.urgency || 'normal';
+      const isRead = !!f.read_at;
+      html += '<div class="fb-item ' + (urg !== 'normal' ? urg : '') + '">' +
+        '<div class="fb-item-header">' +
+        '<span class="fb-badge ' + urg + '">' + (urgLabel[urg] || '🟢') + ' ' + (urg.charAt(0).toUpperCase() + urg.slice(1)) + '</span>' +
+        '<span class="fb-who">' + f.stockiste_name + '</span>' +
+        '<span class="fb-time">' + fmtTime(f.created_at) + '</span>' +
         '</div>' +
-        (f.feedback ? '<div class="w-note">' + f.feedback + (f.photo_url ? '<img src="' + f.photo_url + '">' : '') + '</div>' : '') +
+        (f.feedback ? '<div class="fb-msg">' + f.feedback + '</div>' : '') +
+        (f.photo_url ? '<img src="' + f.photo_url + '" style="width:100%;border-radius:8px;margin-top:8px;max-height:120px;object-fit:cover;display:block;">' : '') +
+        '<div style="font-size:10px;margin-top:6px;color:' + (isRead ? 'var(--green)' : 'var(--text3)') + ';">' +
+        (isRead ? '✓ Lu par ' + f.read_by + ' · ' + fmtTime(f.read_at) : 'Non lu') +
+        '</div>' +
         '</div>';
     });
   }
