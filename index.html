@@ -628,13 +628,9 @@ async function loadTodayData() {
     .eq('store_id', currentStore).eq('date', today)
     .order('created_at', { ascending: false }).limit(1);
   if (fb.data && fb.data.length) {
-    gid('fb-text').value = fb.data[0].feedback || '';
     if (fb.data[0].photo_url) {
       fbPhotoB64 = fb.data[0].photo_url;
-      gid('fb-photo-picker').classList.add('has-img');
-      gid('fb-photo-lbl').innerHTML = '<img src="' + fbPhotoB64 + '" style="width:100%;border-radius:8px;max-height:150px;object-fit:cover;display:block;">';
     }
-    gid('fb-sent').classList.add('show');
   }
   renderToday();
   await loadFbHistory();
