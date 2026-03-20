@@ -446,10 +446,10 @@ const STORE_NAMES = {
 };
 
 const PRESET_NAMES = {
-  montaigne: ['Irma','Augusto','Alen','Emilie','Nadira'],
-  faubourg: [], cannes: [], 'saint-tropez': [], nice: [],
-  'lafayette-kids': [], 'lafayette-men-rtw': [], 'lafayette-men-shoes': [],
-  'lafayette-donna-shoes': [], 'monte-carlo': [], 'monte-carlo-kids': []
+  montaigne: ['Augusto','Alen','Bertrand','Arseni','Oguzhan','Elisa'],
+  faubourg: ['Aurelie','Olivier','Anna'], cannes: ['Youness','Thomas','Stephanie'], 'saint-tropez': ['Askher'], nice: ['Stephanie'],
+  'lafayette-kids': ['Romaric','Francois','Julie'], 'lafayette-men-rtw': ['Romaric','Francois','Julie'], 'lafayette-men-shoes': ['Romaric','Francois','Julie'],
+  'lafayette-donna-shoes': ['Romaric','Francois','Julie'], 'monte-carlo': ['Lorena','Francis','Gilles'], 'monte-carlo-kids': ['Lorena','Francis','Gilles']
 };
 
 // ── STATE ──
@@ -653,41 +653,38 @@ function buildCard(tid) {
   const d = doneMap[tid];
   const n = notesMap[tid];
   const hasNote = !!(n && (n.note || n.photo_url));
-
-  const whoHtml = d ? (
-    '<div class="task-who">' +
-    '<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="4" r="2.5" stroke="#2A7A4E" stroke-width="1.5"/><path d="M1.5 10c0-2.5 9-2.5 9 0" stroke="#2A7A4E" stroke-width="1.5" stroke-linecap="round"/></svg>' +
-    d.by + ' · ' + fmtTime(d.at) +
+  const whoHtml = d ? ('<div class="task-who"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="4" r="2.5" stroke="#2A7A4E" stroke-width="1.5"/><path d="M1.5 10c0-2.5 9-2.5 9 0" stroke="#2A7A4E" stroke-width="1.5" stroke-linecap="round"/></svg>' + d.by + ' · ' + fmtTime(d.at) + '</div>') : '';
+  const notePreview = hasNote ? ('<div class="note-preview"><span class="note-author">' + n.stockiste_name + '</span>' + (n.note || '') + (n.photo_url ? '<img src="' + n.photo_url + '">' : '') + '</div>') : '';
+  return (
+    '<div class="task-card ' + (isDone ? 'done' : '') + '">' +
+    '<div class="task-check-row" data-tid="' + tid + '">' +
+    '<div class="chk-box"><svg class="chk-icon" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
+    '<div class="task-info"><div class="task-name">' + info.label + '</div><div class="task-desc">' + info.desc + '</div>' + whoHtml + '</div>' +
+    '</div>' +
+    '<div class="task-note-row"><button class="note-btn ' + (hasNote ? 'has-note' : '') + '" data-tid="' + tid + '">' + (hasNote ? '📝 note ajoutée' : '+ ajouter une note') + '</button>' + (hasNote ? notePreview : '') + '</div>' +
     '</div>'
-  ) : '';
+  );
+}
 
-  const notePreview = hasNote ? (
-    '<div class="note-preview">' +
-    '<span class="note-author">' + n.stockiste_name + '</span>' +
-    (n.note ? n.note : '') +
-    (n.photo_url ? '<img src="' + n.photo_url + '">' : '') +
-    '</div>'
-  ) : '';
-
-// ── CUSTOM CARD ──
 function buildCustomCard(tid, ct) {
   const isDone = !!doneMap[tid];
   const d = doneMap[tid];
   const n = notesMap[tid];
   const hasNote = !!(n && (n.note || n.photo_url));
-  const whoHtml = d ? '<div class="task-who"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="4" r="2.5" stroke="#2A7A4E" stroke-width="1.5"/><path d="M1.5 10c0-2.5 9-2.5 9 0" stroke="#2A7A4E" stroke-width="1.5" stroke-linecap="round"/></svg>' + d.by + ' · ' + fmtTime(d.at) + '</div>' : '';
-  const notePreview = hasNote ? '<div class="note-preview"><span class="note-author">' + n.stockiste_name + '</span>' + (n.note || '') + (n.photo_url ? '<img src="' + n.photo_url + '">' : '') + '</div>' : '';
+  const whoHtml = d ? ('<div class="task-who"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="4" r="2.5" stroke="#2A7A4E" stroke-width="1.5"/><path d="M1.5 10c0-2.5 9-2.5 9 0" stroke="#2A7A4E" stroke-width="1.5" stroke-linecap="round"/></svg>' + d.by + ' · ' + fmtTime(d.at) + '</div>') : '';
+  const notePreview = hasNote ? ('<div class="note-preview"><span class="note-author">' + n.stockiste_name + '</span>' + (n.note || '') + (n.photo_url ? '<img src="' + n.photo_url + '">' : '') + '</div>') : '';
   const badge = ct.task_type === 'recurrente' ? '<span style="font-size:9px;background:#E6F1FB;color:#185FA5;padding:2px 7px;border-radius:8px;margin-left:6px;font-weight:500;">récurrent</span>' : '';
-  return '<div class="task-card ' + (isDone ? 'done' : '') + '">' +
+  return (
+    '<div class="task-card ' + (isDone ? 'done' : '') + '">' +
     '<div class="task-check-row" data-tid="' + tid + '">' +
     '<div class="chk-box"><svg class="chk-icon" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
     '<div class="task-info"><div class="task-name">' + ct.title + badge + '</div>' + whoHtml + '</div>' +
     '</div>' +
     '<div class="task-note-row"><button class="note-btn ' + (hasNote ? 'has-note' : '') + '" data-tid="' + tid + '">' + (hasNote ? '📝 note ajoutée' : '+ ajouter une note') + '</button>' + (hasNote ? notePreview : '') + '</div>' +
-    '</div>';
+    '</div>'
+  );
 }
 
-// ── ADD TASK MODAL ──
 function openAddTaskModal() {
   gid('add-task-modal').classList.add('open');
   gid('add-task-title').value = '';
@@ -733,28 +730,6 @@ async function saveCustomTask() {
     await loadTodayData();
   } catch(e) { showToast('Erreur — réessayez'); }
   btn.textContent = 'Ajouter →'; btn.disabled = false;
-}
-
-  return (
-    '<div class="task-card ' + (isDone ? 'done' : '') + '">' +
-    '<div class="task-check-row" data-tid="' + tid + '">' +
-    '<div class="chk-box">' +
-    '<svg class="chk-icon" width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
-    '</div>' +
-    '<div class="task-info">' +
-    '<div class="task-name">' + info.label + '</div>' +
-    '<div class="task-desc">' + info.desc + '</div>' +
-    whoHtml +
-    '</div>' +
-    '</div>' +
-    '<div class="task-note-row">' +
-    '<button class="note-btn ' + (hasNote ? 'has-note' : '') + '" data-tid="' + tid + '">' +
-    (hasNote ? '📝 note ajoutée' : '+ ajouter une note') +
-    '</button>' +
-    (hasNote ? notePreview : '') +
-    '</div>' +
-    '</div>'
-  );
 }
 
 // ── TOGGLE — optimistic UI + reload from Supabase ──
