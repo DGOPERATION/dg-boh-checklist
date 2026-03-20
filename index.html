@@ -447,9 +447,16 @@ const STORE_NAMES = {
 
 const PRESET_NAMES = {
   montaigne: ['Augusto','Alen','Bertrand','Arseni','Oguzhan','Elisa'],
-  faubourg: ['Aurelie','Olivier','Anna'], cannes: ['Youness','Thomas','Stephanie'], 'saint-tropez': ['Askher'], nice: ['Stephanie'],
-  'lafayette-kids': ['Romaric','Francois','Julie'], 'lafayette-men-rtw': ['Romaric','Francois','Julie'], 'lafayette-men-shoes': ['Romaric','Francois','Julie'],
-  'lafayette-donna-shoes': ['Romaric','Francois','Julie'], 'monte-carlo': ['Lorena','Francis','Gilles'], 'monte-carlo-kids': ['Lorena','Francis','Gilles']
+  faubourg: ['Aurelie','Olivier','Anna'],
+  cannes: ['Youness','Thomas','Stephanie'],
+  'saint-tropez': ['Askher'],
+  nice: ['Stephanie'],
+  'lafayette-kids': ['Romaric','Francois','Julie'],
+  'lafayette-men-rtw': ['Romaric','Francois','Julie'],
+  'lafayette-men-shoes': ['Romaric','Francois','Julie'],
+  'lafayette-donna-shoes': ['Romaric','Francois','Julie'],
+  'monte-carlo': ['Lorena','Francis','Gilles'],
+  'monte-carlo-kids': ['Lorena','Francis','Gilles']
 };
 
 // ── STATE ──
@@ -822,10 +829,17 @@ function openModal(tid) {
   modalNoteId = null;
   modalPhotoB64 = null;
 
-  const info = TASKS[tid] || { label: tid };
-  const existing = notesMap[tid];
+  // Trouver le titre — tâche fixe ou custom
+  let label = tid;
+  if (tid.startsWith('custom_')) {
+    const ct = customTasks.find(c => 'custom_' + c.id === tid);
+    label = ct ? ct.title : tid;
+  } else {
+    label = TASKS[tid] ? TASKS[tid].label : tid;
+  }
 
-  gid('modal-title').textContent = info.label;
+  const existing = notesMap[tid];
+  gid('modal-title').textContent = label;
   gid('modal-text').value = existing ? (existing.note || '') : '';
   gid('btn-modal-delete').style.display = existing ? 'block' : 'none';
 
@@ -874,6 +888,16 @@ gid('btn-modal-save').addEventListener('click', async function() {
   const text = gid('modal-text').value.trim();
   if (!text && !modalPhotoB64) { showToast('Ajoutez une note ou une photo'); return; }
   this.textContent = '...'; this.disabled = true;
+
+  // Résoudre le nom de la tâche
+  let taskName = modalTaskId;
+  if (modalTaskId.startsWith('custom_')) {
+    const ct = customTasks.find(c => 'custom_' + c.id === modalTaskId);
+    taskName = ct ? ct.title : modalTaskId;
+  } else {
+    taskName = TASKS[modalTaskId] ? TASKS[modalTaskId].label : modalTaskId;
+  }
+
   try {
     if (modalNoteId) {
       await DB.from('stockiste_notes').update({
@@ -882,7 +906,7 @@ gid('btn-modal-save').addEventListener('click', async function() {
     } else {
       await DB.from('stockiste_notes').insert({
         store_id: currentStore, stockiste_name: currentName,
-        task_id: modalTaskId, task_name: TASKS[modalTaskId] ? TASKS[modalTaskId].label : modalTaskId,
+        task_id: modalTaskId, task_name: taskName,
         note: text, photo_url: modalPhotoB64 || null, date: todayStr()
       });
     }
