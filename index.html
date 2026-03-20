@@ -1060,14 +1060,33 @@ async function renderWeek() {
   const start = dates[0].toISOString().split('T')[0];
   const end = dates[6].toISOString().split('T')[0];
 
-  const [r1, r2] = await Promise.all([
+  const [r1, r2, r3] = await Promise.all([
     DB.from('stockiste_completions').select('task_id,date,stockiste_name,completed_at')
       .eq('store_id', currentStore).gte('date', start).lte('date', end),
     DB.from('stockiste_notes').select('*')
-      .eq('store_id', currentStore).gte('date', start).lte('date', end)
+      .eq('store_id', currentStore).gte('date', start).lte('date', end),
+    DB.from('custom_tasks').select('*').eq('store_id', currentStore).eq('active', true)
   ]);
 
   const t = STORE_TASKS[currentStore] || { o: [], f: [] };
+  const allCustom = r3.data || [];
+
+  // Fonction pour filtrer les custom tasks applicables à une date donnée
+  function getCustomForDate(dateStr) {
+    const d = new Date(dateStr + 'T12:00:00');
+    const dow = d.getDay();
+    const dom = d.getDate();
+    return allCustom.filter(ct => {
+      if (ct.task_type === 'ponctuelle') return ct.scheduled_date === dateStr;
+      if (ct.task_type === 'recurrente') {
+        if (ct.recurrence === 'quotidien') return true;
+        if (ct.recurrence === 'hebdo') return ct.recurrence_days && ct.recurrence_days.includes(String(dow));
+        if (ct.recurrence === 'mensuel') return ct.recurrence_day_of_month === dom;
+      }
+      return false;
+    });
+  }
+
   const all = [...t.o, ...t.f];
 
   const byDate = {}, detailByDate = {}, notesByDate = {};
@@ -1108,6 +1127,29 @@ async function renderWeek() {
     html += '<div class="sec-hd"><div class="sec-dot" style="background:#EF9F27;"></div><div class="sec-name">ouverture</div></div>';
     t.o.forEach(tid => { html += buildWeekRow(tid, dDone, dDetail, dNotes); });
   }
+
+  // TÂCHES DU JOUR (custom)
+  const customForDay = getCustomForDate(weekDay);
+  if (customForDay.length) {
+    html += '<div class="sec-hd" style="margin-top:10px;"><div class="sec-dot" style="background:#378ADD;"></div><div class="sec-name">tâches du jour</div></div>';
+    customForDay.forEach(ct => {
+      const tid = 'custom_' + ct.id;
+      const isDone = dDone.has(tid);
+      const d = dDetail[tid];
+      const n = dNotes[tid];
+      const hasNote = !!(n && (n.note || n.photo_url));
+      const badge = ct.task_type === 'recurrente' ? ' <span style="font-size:9px;background:#E6F1FB;color:#185FA5;padding:2px 6px;border-radius:8px;">récurrent</span>' : '';
+      html += '<div class="week-task ' + (isDone ? 'done' : '') + '">' +
+        '<div class="week-task-row">' +
+        '<div class="w-chk">' + (isDone ? '<svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' : '') + '</div>' +
+        '<div class="w-name">' + ct.title + badge + '</div>' +
+        (d ? '<div class="w-who">✓ ' + d.by + ' · ' + fmtTime(d.at) + '</div>' : '') +
+        '</div>' +
+        (hasNote ? '<div class="w-note"><strong style="color:var(--gold);font-size:10px;">' + n.stockiste_name + ' · </strong>' + (n.note || '') + (n.photo_url ? '<img src="' + n.photo_url + '">' : '') + '</div>' : '') +
+        '</div>';
+    });
+  }
+
   if (t.f.length) {
     html += '<div class="sec-hd" style="margin-top:10px;"><div class="sec-dot" style="background:#1A1612;"></div><div class="sec-name">fermeture</div></div>';
     t.f.forEach(tid => { html += buildWeekRow(tid, dDone, dDetail, dNotes); });
