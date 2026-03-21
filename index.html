@@ -7,8 +7,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BOH Checklist">
 <title>D&G — BOH Checklist</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" crossorigin="anonymous"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Sans:wght@300;400;500;600&display=swap');
 
@@ -323,7 +323,7 @@ body {
 
     <div class="form-block">
       <label class="form-lbl">Boutique</label>
-      <select class="form-sel" id="inp-store">
+      <select class="form-sel" id="inp-store" onchange="handleStoreChange(this.value)">
         <option value="">Sélectionner...</option>
         <option value="montaigne">Paris Montaigne</option>
         <option value="faubourg">Paris Faubourg</option>
@@ -341,7 +341,7 @@ body {
 
     <div class="form-block" id="name-block" style="display:none;">
       <label class="form-lbl">Votre prénom</label>
-      <select class="form-sel" id="inp-name-sel">
+      <select class="form-sel" id="inp-name-sel" onchange="handleNameChange(this.value)">
         <option value="">Sélectionner...</option>
       </select>
       <input type="text" class="form-inp" id="inp-name-txt" placeholder="Tapez votre prénom..." style="margin-top:8px;display:none;">
@@ -825,7 +825,32 @@ function closeModal() {
   gid('modal-photo-inp').value = '';
 }
 
-window.addEventListener('load', function() {
+// ── FONCTIONS GLOBALES (accessibles depuis HTML) ──
+function handleStoreChange(sid) {
+  const block = document.getElementById('name-block');
+  if (!sid) { block.style.display = 'none'; return; }
+  block.style.display = 'block';
+  const sel = document.getElementById('inp-name-sel');
+  sel.innerHTML = '<option value="">Sélectionner...</option>';
+  (PRESET_NAMES[sid] || []).forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n; opt.textContent = n;
+    sel.appendChild(opt);
+  });
+  const other = document.createElement('option');
+  other.value = '__other__'; other.textContent = 'Autre prénom...';
+  sel.appendChild(other);
+  document.getElementById('inp-name-txt').style.display = 'none';
+  document.getElementById('inp-name-txt').value = '';
+}
+
+function handleNameChange(val) {
+  const inp = document.getElementById('inp-name-txt');
+  if (val === '__other__') { inp.style.display = 'block'; inp.focus(); }
+  else { inp.style.display = 'none'; inp.value = ''; }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
 
 // ── LOGIN LISTENERS ──
 gid('inp-store').addEventListener('change', function() {
@@ -1022,7 +1047,7 @@ gid('btn-send-fb').addEventListener('click', async function() {
   this.textContent = 'Envoyer →'; this.disabled = false;
 });
 
-}); // fin window.load
+}); // fin DOMContentLoaded
 
 function setUrgency(level, btn) {
   currentUrgency = level;
