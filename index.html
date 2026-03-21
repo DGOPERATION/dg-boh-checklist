@@ -988,8 +988,15 @@ gid('btn-send-fb').addEventListener('click', async function() {
     });
     // Reset form
     gid('fb-text').value = '';
-    gid('fb-photo-picker').classList.remove('has-img');
-    gid('fb-photo-lbl').textContent = '📷 Ajouter une photo';
+    const fpp = gid('fb-photo-picker');
+    if (fpp) {
+      fpp.classList.remove('has-img');
+      // Supprimer l'image du picker sans affecter les feedbacks affichés
+      const fpl = gid('fb-photo-lbl');
+      if (fpl) fpl.textContent = '📷 Ajouter une photo';
+      const inp = gid('fb-photo-inp');
+      if (inp) inp.value = '';
+    }
     fbPhotoB64 = null;
     currentUrgency = 'normal';
     document.querySelectorAll('.urgency-btn').forEach(b => b.classList.remove('active'));
@@ -1051,7 +1058,11 @@ function renderFbHistory(items) {
   items.forEach(f => {
     const isRead = !!f.read_at;
     const urg = f.urgency || 'normal';
-    const photoHtml = f.photo_url ? '<img src="' + f.photo_url + '" style="width:100%;border-radius:8px;margin-top:8px;max-height:150px;object-fit:cover;display:block;">' : '';
+    // Photo strictement liée à CE feedback uniquement
+    const photoHtml = (f.photo_url && f.photo_url.length > 10)
+      ? '<img src="' + f.photo_url + '" style="width:100%;border-radius:8px;margin-top:8px;max-height:150px;object-fit:cover;display:block;">'
+      : '';
+    const canDelete = f.stockiste_name === currentName;
     html += '<div class="fb-item ' + (urg !== 'normal' ? urg : '') + '">' +
       '<div class="fb-item-header">' +
       '<span class="fb-badge ' + urg + '">' + (urgLabel[urg] || urg) + '</span>' +
@@ -1060,9 +1071,12 @@ function renderFbHistory(items) {
       '</div>' +
       (f.feedback ? '<div class="fb-msg">' + f.feedback + '</div>' : '') +
       photoHtml +
+      '<div style="display:flex;gap:8px;margin-top:8px;align-items:center;">' +
       '<button class="btn-read ' + (isRead ? 'done' : '') + '" data-fbid="' + f.id + '">' +
       (isRead ? '✓ Lu par ' + f.read_by : 'Marquer comme lu') +
       '</button>' +
+      (canDelete ? '<button class="btn-fb-delete" data-fbid="' + f.id + '" style="background:var(--red-bg);border:1px solid var(--red);border-radius:6px;padding:5px 10px;font-family:\'DM Sans\',sans-serif;font-size:10px;color:var(--red);cursor:pointer;">Supprimer</button>' : '') +
+      '</div>' +
       '</div>';
   });
   html += '</div>';
@@ -1074,6 +1088,16 @@ function renderFbHistory(items) {
       await DB.from('stockiste_feedback').update({
         read_at: new Date().toISOString(), read_by: currentName
       }).eq('id', fbid);
+      await loadFbHistory();
+    });
+  });
+
+  container.querySelectorAll('.btn-fb-delete').forEach(btn => {
+    btn.addEventListener('click', async function() {
+      const fbid = this.getAttribute('data-fbid');
+      if (!confirm('Supprimer ce feedback ?')) return;
+      await DB.from('stockiste_feedback').delete().eq('id', fbid);
+      showToast('Feedback supprimé');
       await loadFbHistory();
     });
   });
