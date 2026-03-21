@@ -697,7 +697,7 @@ async function saveCustomTask() {
     closeAddTaskModal();
     showToast('✓ Tâche ajoutée');
     await loadTodayData();
-  } catch(e) { showToast('Erreur — réessayez'); }
+  } catch(e) { showToast('Erreur, réessayez'); }
   btn.textContent = 'Ajouter →'; btn.disabled = false;
 }
 
@@ -986,7 +986,7 @@ gid('btn-modal-save').addEventListener('click', async function() {
     closeModal();
     showToast('✓ Note enregistrée');
     renderToday();
-  } catch(err) { showToast('Erreur — réessayez'); }
+  } catch(err) { showToast('Erreur, réessayez'); }
   this.textContent = 'Enregistrer →'; this.disabled = false;
 });
 
@@ -1040,10 +1040,7 @@ gid('btn-send-fb').addEventListener('click', async function() {
     document.querySelector('.urgency-btn[data-level="normal"]').classList.add('active');
     showToast('✓ Feedback envoyé');
     await loadFbHistory();
-  } catch(err) { showToast('Erreur — réessayez'); }
-  this.textContent = 'Envoyer →'; this.disabled = false;
-});
-  } catch(err) { showToast('Erreur — réessayez'); }
+  } catch(err) { showToast('Erreur, réessayez'); }
   this.textContent = 'Envoyer →'; this.disabled = false;
 });
 
