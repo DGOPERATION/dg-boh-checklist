@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="BOH Checklist">
 <title>D&G — BOH Checklist</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=DM+Sans:wght@300;400;500;600&display=swap');
 
@@ -373,7 +374,10 @@ body {
     <div class="prog-wrap">
       <div class="prog-row">
         <div class="prog-label" id="today-label"></div>
-        <div class="prog-count" id="today-count">0/0</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="prog-count" id="today-count">0/0</div>
+          <button onclick="shareDay()" style="background:var(--surface);border:1.5px solid var(--border);border-radius:8px;padding:5px 10px;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--text2);cursor:pointer;">📤 Partager</button>
+        </div>
       </div>
       <div class="prog-bar"><div class="prog-fill" id="today-fill" style="width:0%"></div></div>
     </div>
@@ -567,13 +571,16 @@ gid('btn-logout').addEventListener('click', function() {
   stopAutoRefresh();
   currentStore = null; currentName = null;
   doneMap = {}; notesMap = {}; weekDay = null;
+  customTasks = []; currentUrgency = 'normal';
   gid('inp-store').value = '';
   gid('name-block').style.display = 'none';
   gid('inp-name-txt').style.display = 'none';
   gid('fb-text').value = '';
-  gid('fb-sent').classList.remove('show');
-  gid('fb-photo-picker').classList.remove('has-img');
-  gid('fb-photo-lbl').textContent = '📷 Ajouter une photo';
+  gid('fb-history').innerHTML = '';
+  const fpp = gid('fb-photo-picker');
+  if (fpp) { fpp.classList.remove('has-img'); }
+  const fpl = gid('fb-photo-lbl');
+  if (fpl) { fpl.textContent = '📷 Ajouter une photo'; }
   fbPhotoB64 = null;
   goScreen('login');
 });
@@ -1001,6 +1008,33 @@ function setUrgency(level, btn) {
   btn.classList.add('active');
 }
 
+async function shareDay() {
+  const btn = document.querySelector('[onclick="shareDay()"]');
+  if (btn) btn.textContent = '⏳ Capture...';
+  try {
+    const panel = gid('panel-today');
+    const canvas = await html2canvas(panel, {
+      backgroundColor: '#F7F4EF', scale: 2, useCORS: true,
+      ignoreElements: el => el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'
+    });
+    const imgData = canvas.toDataURL('image/png');
+    if (navigator.share && navigator.canShare) {
+      const blob = await (await fetch(imgData)).blob();
+      const file = new File([blob], 'checklist-' + todayStr() + '.png', { type: 'image/png' });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'BOH Checklist — ' + todayFull() });
+        if (btn) btn.textContent = '📤 Partager';
+        return;
+      }
+    }
+    const link = document.createElement('a');
+    link.download = 'checklist-' + todayStr() + '.png';
+    link.href = imgData;
+    link.click();
+  } catch(e) { showToast('Erreur capture'); }
+  if (btn) btn.textContent = '📤 Partager';
+}
+
 async function loadFbHistory() {
   const { data } = await DB.from('stockiste_feedback')
     .select('*').eq('store_id', currentStore).eq('date', todayStr())
@@ -1017,6 +1051,7 @@ function renderFbHistory(items) {
   items.forEach(f => {
     const isRead = !!f.read_at;
     const urg = f.urgency || 'normal';
+    const photoHtml = f.photo_url ? '<img src="' + f.photo_url + '" style="width:100%;border-radius:8px;margin-top:8px;max-height:150px;object-fit:cover;display:block;">' : '';
     html += '<div class="fb-item ' + (urg !== 'normal' ? urg : '') + '">' +
       '<div class="fb-item-header">' +
       '<span class="fb-badge ' + urg + '">' + (urgLabel[urg] || urg) + '</span>' +
@@ -1024,7 +1059,7 @@ function renderFbHistory(items) {
       '<span class="fb-time">' + fmtTime(f.created_at) + '</span>' +
       '</div>' +
       (f.feedback ? '<div class="fb-msg">' + f.feedback + '</div>' : '') +
-      (f.photo_url ? '<img src="' + f.photo_url + '" style="width:100%;border-radius:8px;margin-top:8px;max-height:150px;object-fit:cover;display:block;">' : '') +
+      photoHtml +
       '<button class="btn-read ' + (isRead ? 'done' : '') + '" data-fbid="' + f.id + '">' +
       (isRead ? '✓ Lu par ' + f.read_by : 'Marquer comme lu') +
       '</button>' +
