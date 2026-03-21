@@ -988,31 +988,34 @@ gid('fb-photo-inp').addEventListener('change', function() {
 
 gid('btn-send-fb').addEventListener('click', async function() {
   const text = gid('fb-text').value.trim();
-  if (!text && !fbPhotoB64) { showToast('Ajoutez un feedback ou une photo'); return; }
+  // Capture la photo UNIQUEMENT si le picker est actif
+  const hasPickerPhoto = gid('fb-photo-picker') && gid('fb-photo-picker').classList.contains('has-img');
+  const photoToSend = hasPickerPhoto ? fbPhotoB64 : null;
+  if (!text && !photoToSend) { showToast('Ajoutez un feedback ou une photo'); return; }
   this.textContent = 'Envoi...'; this.disabled = true;
   try {
     await DB.from('stockiste_feedback').insert({
       store_id: currentStore, stockiste_name: currentName,
-      feedback: text, photo_url: fbPhotoB64 || null,
+      feedback: text, photo_url: photoToSend,
       urgency: currentUrgency, date: todayStr()
     });
-    // Reset form
+    // Reset complet
     gid('fb-text').value = '';
-    const fpp = gid('fb-photo-picker');
-    if (fpp) {
-      fpp.classList.remove('has-img');
-      // Supprimer l'image du picker sans affecter les feedbacks affichés
-      const fpl = gid('fb-photo-lbl');
-      if (fpl) fpl.textContent = '📷 Ajouter une photo';
-      const inp = gid('fb-photo-inp');
-      if (inp) inp.value = '';
-    }
     fbPhotoB64 = null;
+    const fpp = gid('fb-photo-picker');
+    if (fpp) fpp.classList.remove('has-img');
+    const fpl = gid('fb-photo-lbl');
+    if (fpl) fpl.textContent = '📷 Ajouter une photo';
+    const inp = gid('fb-photo-inp');
+    if (inp) inp.value = '';
     currentUrgency = 'normal';
     document.querySelectorAll('.urgency-btn').forEach(b => b.classList.remove('active'));
     document.querySelector('.urgency-btn[data-level="normal"]').classList.add('active');
     showToast('✓ Feedback envoyé');
     await loadFbHistory();
+  } catch(err) { showToast('Erreur — réessayez'); }
+  this.textContent = 'Envoyer →'; this.disabled = false;
+});
   } catch(err) { showToast('Erreur — réessayez'); }
   this.textContent = 'Envoyer →'; this.disabled = false;
 });
