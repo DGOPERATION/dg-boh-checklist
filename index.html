@@ -560,6 +560,16 @@ gid('btn-login').addEventListener('click', async function() {
   if (!name) { showToast('Entrez votre prénom'); return; }
   currentStore = sid;
   currentName = name;
+  // Reset complet de l'état photo/feedback à chaque connexion
+  fbPhotoB64 = null;
+  currentUrgency = 'normal';
+  gid('fb-text').value = '';
+  const fpp = gid('fb-photo-picker');
+  if (fpp) fpp.classList.remove('has-img');
+  const fpl = gid('fb-photo-lbl');
+  if (fpl) fpl.textContent = '📷 Ajouter une photo';
+  const finp = gid('fb-photo-inp');
+  if (finp) finp.value = '';
   gid('hdr-name').textContent = name + ' — ' + STORE_NAMES[sid];
   gid('today-label').textContent = todayFull();
   await loadTodayData();
