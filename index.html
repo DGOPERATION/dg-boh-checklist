@@ -988,9 +988,11 @@ gid('fb-photo-inp').addEventListener('change', function() {
 
 gid('btn-send-fb').addEventListener('click', async function() {
   const text = gid('fb-text').value.trim();
-  // Capture la photo UNIQUEMENT si le picker est actif
-  const hasPickerPhoto = gid('fb-photo-picker') && gid('fb-photo-picker').classList.contains('has-img');
-  const photoToSend = hasPickerPhoto ? fbPhotoB64 : null;
+  // Si le picker n'affiche pas d'image, forcer null peu importe fbPhotoB64
+  if (!gid('fb-photo-picker').classList.contains('has-img')) {
+    fbPhotoB64 = null;
+  }
+  const photoToSend = fbPhotoB64 || null;
   if (!text && !photoToSend) { showToast('Ajoutez un feedback ou une photo'); return; }
   this.textContent = 'Envoi...'; this.disabled = true;
   try {
