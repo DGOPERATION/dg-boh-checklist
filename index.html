@@ -526,90 +526,6 @@ function goScreen(id) {
 }
 
 // ── LOGIN LOGIC ──
-gid('inp-store').addEventListener('change', function() {
-  const sid = this.value;
-  const block = gid('name-block');
-  if (!sid) { block.style.display = 'none'; return; }
-  block.style.display = 'block';
-  const sel = gid('inp-name-sel');
-  sel.innerHTML = '<option value="">Sélectionner...</option>';
-  (PRESET_NAMES[sid] || []).forEach(n => {
-    const opt = document.createElement('option');
-    opt.value = n; opt.textContent = n;
-    sel.appendChild(opt);
-  });
-  const other = document.createElement('option');
-  other.value = '__other__'; other.textContent = 'Autre prénom...';
-  sel.appendChild(other);
-  gid('inp-name-txt').style.display = 'none';
-  gid('inp-name-txt').value = '';
-});
-
-gid('inp-name-sel').addEventListener('change', function() {
-  const inp = gid('inp-name-txt');
-  if (this.value === '__other__') { inp.style.display = 'block'; inp.focus(); }
-  else { inp.style.display = 'none'; inp.value = ''; }
-});
-
-gid('btn-login').addEventListener('click', async function() {
-  const sid = gid('inp-store').value;
-  const selVal = gid('inp-name-sel').value;
-  const inpVal = gid('inp-name-txt').value.trim();
-  const name = selVal === '__other__' ? inpVal : selVal;
-  if (!sid) { showToast('Sélectionnez votre boutique'); return; }
-  if (!name) { showToast('Entrez votre prénom'); return; }
-  currentStore = sid;
-  currentName = name;
-  // Reset complet de l'état photo/feedback à chaque connexion
-  fbPhotoB64 = null;
-  currentUrgency = 'normal';
-  gid('fb-text').value = '';
-  const fpp = gid('fb-photo-picker');
-  if (fpp) fpp.classList.remove('has-img');
-  const fpl = gid('fb-photo-lbl');
-  if (fpl) fpl.textContent = '📷 Ajouter une photo';
-  const finp = gid('fb-photo-inp');
-  if (finp) finp.value = '';
-  gid('hdr-name').textContent = name + ' — ' + STORE_NAMES[sid];
-  gid('today-label').textContent = todayFull();
-  await loadTodayData();
-  startAutoRefresh();
-  goScreen('app');
-});
-
-gid('btn-logout').addEventListener('click', function() {
-  stopAutoRefresh();
-  currentStore = null; currentName = null;
-  doneMap = {}; notesMap = {}; weekDay = null;
-  customTasks = []; currentUrgency = 'normal';
-  gid('inp-store').value = '';
-  gid('name-block').style.display = 'none';
-  gid('inp-name-txt').style.display = 'none';
-  gid('fb-text').value = '';
-  gid('fb-history').innerHTML = '';
-  const fpp = gid('fb-photo-picker');
-  if (fpp) { fpp.classList.remove('has-img'); }
-  const fpl = gid('fb-photo-lbl');
-  if (fpl) { fpl.textContent = '📷 Ajouter une photo'; }
-  fbPhotoB64 = null;
-  goScreen('login');
-});
-
-// ── TABS ──
-gid('tab-today-btn').addEventListener('click', function() {
-  gid('panel-today').classList.add('active');
-  gid('panel-week').classList.remove('active');
-  this.classList.add('active');
-  gid('tab-week-btn').classList.remove('active');
-});
-
-gid('tab-week-btn').addEventListener('click', async function() {
-  gid('panel-week').classList.add('active');
-  gid('panel-today').classList.remove('active');
-  this.classList.add('active');
-  gid('tab-today-btn').classList.remove('active');
-  await renderWeek();
-});
 
 // ── LOAD TODAY ──
 async function loadTodayData() {
@@ -910,6 +826,90 @@ function closeModal() {
 }
 
 window.addEventListener('load', function() {
+
+// ── LOGIN LISTENERS ──
+gid('inp-store').addEventListener('change', function() {
+  const sid = this.value;
+  const block = gid('name-block');
+  if (!sid) { block.style.display = 'none'; return; }
+  block.style.display = 'block';
+  const sel = gid('inp-name-sel');
+  sel.innerHTML = '<option value="">Sélectionner...</option>';
+  (PRESET_NAMES[sid] || []).forEach(n => {
+    const opt = document.createElement('option');
+    opt.value = n; opt.textContent = n;
+    sel.appendChild(opt);
+  });
+  const other = document.createElement('option');
+  other.value = '__other__'; other.textContent = 'Autre prénom...';
+  sel.appendChild(other);
+  gid('inp-name-txt').style.display = 'none';
+  gid('inp-name-txt').value = '';
+});
+
+gid('inp-name-sel').addEventListener('change', function() {
+  const inp = gid('inp-name-txt');
+  if (this.value === '__other__') { inp.style.display = 'block'; inp.focus(); }
+  else { inp.style.display = 'none'; inp.value = ''; }
+});
+
+gid('btn-login').addEventListener('click', async function() {
+  const sid = gid('inp-store').value;
+  const selVal = gid('inp-name-sel').value;
+  const inpVal = gid('inp-name-txt').value.trim();
+  const name = selVal === '__other__' ? inpVal : selVal;
+  if (!sid) { showToast('Sélectionnez votre boutique'); return; }
+  if (!name) { showToast('Entrez votre prénom'); return; }
+  currentStore = sid;
+  currentName = name;
+  fbPhotoB64 = null;
+  currentUrgency = 'normal';
+  gid('fb-text').value = '';
+  const fpp = gid('fb-photo-picker');
+  if (fpp) fpp.classList.remove('has-img');
+  const fpl = gid('fb-photo-lbl');
+  if (fpl) fpl.textContent = '📷 Ajouter une photo';
+  const finp = gid('fb-photo-inp');
+  if (finp) finp.value = '';
+  gid('hdr-name').textContent = name + ' — ' + STORE_NAMES[sid];
+  gid('today-label').textContent = todayFull();
+  await loadTodayData();
+  startAutoRefresh();
+  goScreen('app');
+});
+
+gid('btn-logout').addEventListener('click', function() {
+  stopAutoRefresh();
+  currentStore = null; currentName = null;
+  doneMap = {}; notesMap = {}; weekDay = null;
+  customTasks = []; currentUrgency = 'normal';
+  gid('inp-store').value = '';
+  gid('name-block').style.display = 'none';
+  gid('inp-name-txt').style.display = 'none';
+  gid('fb-text').value = '';
+  gid('fb-history').innerHTML = '';
+  const fpp = gid('fb-photo-picker');
+  if (fpp) fpp.classList.remove('has-img');
+  const fpl = gid('fb-photo-lbl');
+  if (fpl) fpl.textContent = '📷 Ajouter une photo';
+  fbPhotoB64 = null;
+  goScreen('login');
+});
+
+gid('tab-today-btn').addEventListener('click', function() {
+  gid('panel-today').classList.add('active');
+  gid('panel-week').classList.remove('active');
+  this.classList.add('active');
+  gid('tab-week-btn').classList.remove('active');
+});
+
+gid('tab-week-btn').addEventListener('click', async function() {
+  gid('panel-week').classList.add('active');
+  gid('panel-today').classList.remove('active');
+  this.classList.add('active');
+  gid('tab-today-btn').classList.remove('active');
+  await renderWeek();
+});
 
 gid('modal-bg').addEventListener('click', function(e) {
   if (e.target === this) closeModal();
